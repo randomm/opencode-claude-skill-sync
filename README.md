@@ -4,7 +4,7 @@ Automatically syncs OpenCode plugin skills to Claude Code so they're available i
 
 ## Installation
 
-Add the plugin to your OpenCode configuration file (`opencode.json` or `opencode.work.json`):
+Add the plugin to your OpenCode configuration file (`opencode.json`):
 
 ```json
 {
