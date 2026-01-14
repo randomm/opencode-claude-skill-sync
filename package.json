@@ -1,5 +1,5 @@
 {
-  "name": "opencode-claude-skill-sync",
+  "name": "@jannniiiii/opencode-claude-skill-sync",
   "version": "1.0.0",
   "description": "Automatically syncs OpenCode plugin skills to Claude Code ~/.claude/skills directory",
   "type": "module",
@@ -48,7 +48,7 @@
     "claude",
     "sync"
   ],
-  "author": "OpenCode Contributors",
+  "author": "jannniiiii",
   "license": "MIT",
   "repository": {
     "type": "git",
