@@ -1,5 +1,5 @@
 {
-  "name": "@opencode-ai/claude-skill-sync",
+  "name": "opencode-claude-skill-sync",
   "version": "1.0.0",
   "description": "Automatically syncs OpenCode plugin skills to Claude Code ~/.claude/skills directory",
   "type": "module",

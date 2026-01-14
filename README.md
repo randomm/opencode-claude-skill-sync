@@ -1,4 +1,4 @@
-# claude-skill-sync
+# opencode-claude-skill-sync
 
 Automatically syncs OpenCode plugin skills to Claude Code so they're available in every session—no manual setup required.
 
@@ -8,7 +8,7 @@ Add the plugin to your OpenCode configuration file (`opencode.json`):
 
 ```json
 {
-  "plugin": ["@opencode-ai/claude-skill-sync"]
+  "plugin": ["opencode-claude-skill-sync"]
 }
 ```
 
@@ -20,7 +20,7 @@ To lock a specific version:
 
 ```json
 {
-  "plugin": ["@opencode-ai/claude-skill-sync@1.0.0"]
+  "plugin": ["opencode-claude-skill-sync@1.0.0"]
 }
 ```
 
