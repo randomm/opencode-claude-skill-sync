@@ -235,12 +235,13 @@ async function findSkillsInMarketplaces(
 async function syncSkills(client: PluginInput["client"]): Promise<void> {
   const home = homedir()
   const claudeDir = join(home, ".claude")
+  const opencodeDir = join(home, ".config", "opencode")
   const cacheDir = join(claudeDir, "plugins", "cache")
   const marketplacesDir = join(claudeDir, "plugins", "marketplaces")
-  const targetDir = join(claudeDir, "skills")
+  const targetDir = join(opencodeDir, "skill")
 
   try {
-    // Check if Claude directory exists
+    // Check if Claude directory exists (required for plugin cache/marketplaces)
     if (!(await exists(claudeDir))) {
       (client as unknown as { app: { log: (msg: string) => void } }).app.log(
         "Claude Code not installed, skipping"
@@ -343,8 +344,8 @@ async function syncSkills(client: PluginInput["client"]): Promise<void> {
 /**
  * Claude Skill Sync Plugin
  *
- * Automatically discovers and syncs OpenCode plugin skills to the Claude Code
- * ~/.claude/skills directory via symlinks. Runs asynchronously to avoid blocking
+ * Automatically discovers and syncs OpenCode plugin skills to the OpenCode
+ * ~/.config/opencode/skill directory via symlinks. Runs asynchronously to avoid blocking
  * OpenCode startup.
  *
  * @example
