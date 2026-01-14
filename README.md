@@ -63,7 +63,7 @@ The plugin runs asynchronously when OpenCode starts. It doesn't block startup—
 Clone the repository and install dependencies:
 
 ```bash
-git clone https://github.com/anomalyco/opencode-claude-skill-sync.git
+git clone https://github.com/randomm/opencode-claude-skill-sync.git
 cd opencode-claude-skill-sync
 npm install
 ```
