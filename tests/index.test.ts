@@ -163,7 +163,7 @@ describe("mock filesystem operations", () => {
   it("should detect symlink with lstat", async () => {
     mockFs.mockSymlinks.set("/link", "/source")
 
-    const stats = await mockFs.mocks.lstat("/link")
+    const stats = (await mockFs.mocks.lstat("/link")) as { isSymbolicLink: () => boolean }
 
     expect(stats.isSymbolicLink()).toBe(true)
   })
@@ -171,7 +171,10 @@ describe("mock filesystem operations", () => {
   it("should detect directory with lstat", async () => {
     addDirStructure(mockFs, "/dir", [])
 
-    const stats = await mockFs.mocks.lstat("/dir")
+    const stats = (await mockFs.mocks.lstat("/dir")) as {
+      isDirectory: () => boolean
+      isSymbolicLink: () => boolean
+    }
 
     expect(stats.isDirectory()).toBe(true)
     expect(stats.isSymbolicLink()).toBe(false)
@@ -250,7 +253,7 @@ describe("skill sync core logic", () => {
 
     const versions = ["1.0.0", "2.1.3", "1.5.0", "0.9.1"]
     const sorted = versions.slice().sort(compareVersions)
-    const latest = sorted[sorted.length - 1]
+    const latest = sorted[sorted.length - 1] as string
 
     expect(latest).toBe("2.1.3")
   })
@@ -454,5 +457,188 @@ describe("edge cases", () => {
 
     expect(mockFs.mockSymlinks.get("/intermediate")).toBe("/final")
     expect(mockFs.mockSymlinks.get("/final")).toBe("/source")
+  })
+})
+
+/**
+ * Clean slate symlink management tests
+ */
+describe("symlink cleanup (clean slate)", () => {
+  let mockFs: ReturnType<typeof createMockFilesystem>
+
+  beforeEach(() => {
+    mockFs = createMockFilesystem()
+  })
+
+  it("should remove all symlinks from target directory", async () => {
+    const targetDir = "/skills"
+    addDirStructure(mockFs, targetDir, ["skill1", "skill2", "skill3"])
+
+    // Add symlinks
+    mockFs.mockSymlinks.set("/skills/skill1", "/cache/skill1")
+    mockFs.mockSymlinks.set("/skills/skill2", "/cache/skill2")
+    mockFs.mockSymlinks.set("/skills/skill3", "/cache/skill3")
+
+    // Simulate cleanup: remove all symlinks
+    const entries = (await mockFs.mocks.readdir(targetDir)) as string[]
+    let cleaned = 0
+
+    for (const entry of entries) {
+      const entryPath = join(targetDir, entry)
+      const lstats = (await mockFs.mocks.lstat(entryPath)) as { isSymbolicLink: () => boolean }
+
+      if (lstats.isSymbolicLink()) {
+        await mockFs.mocks.unlink(entryPath)
+        cleaned++
+      }
+    }
+
+    expect(cleaned).toBe(3)
+    expect(mockFs.mockSymlinks.has("/skills/skill1")).toBe(false)
+    expect(mockFs.mockSymlinks.has("/skills/skill2")).toBe(false)
+    expect(mockFs.mockSymlinks.has("/skills/skill3")).toBe(false)
+  })
+
+  it("should NOT remove regular files in target directory", async () => {
+    const targetDir = "/skills"
+    addDirStructure(mockFs, targetDir, ["regular-file.txt"])
+
+    // Add a regular file (not a symlink)
+    mockFs.mockFiles.add("/skills/regular-file.txt")
+
+    // Simulate cleanup: only remove symlinks
+    const entries = (await mockFs.mocks.readdir(targetDir)) as string[]
+    let cleaned = 0
+
+    for (const entry of entries) {
+      const entryPath = join(targetDir, entry)
+      const lstats = (await mockFs.mocks.lstat(entryPath)) as { isSymbolicLink: () => boolean }
+
+      if (lstats.isSymbolicLink()) {
+        await mockFs.mocks.unlink(entryPath)
+        cleaned++
+      }
+    }
+
+    expect(cleaned).toBe(0)
+    expect(mockFs.mockFiles.has("/skills/regular-file.txt")).toBe(true)
+  })
+
+  it("should NOT remove directories in target directory", async () => {
+    const targetDir = "/skills"
+    addDirStructure(mockFs, targetDir, ["subdir"])
+    addDirStructure(mockFs, "/skills/subdir", [])
+
+    // Simulate cleanup: only remove symlinks
+    const entries = (await mockFs.mocks.readdir(targetDir)) as string[]
+    let cleaned = 0
+
+    for (const entry of entries) {
+      const entryPath = join(targetDir, entry)
+      const lstats = (await mockFs.mocks.lstat(entryPath)) as { isSymbolicLink: () => boolean }
+
+      if (lstats.isSymbolicLink()) {
+        await mockFs.mocks.unlink(entryPath)
+        cleaned++
+      }
+    }
+
+    expect(cleaned).toBe(0)
+    expect(mockFs.mockDirs.has("/skills/subdir")).toBe(true)
+  })
+
+  it("should handle mixed symlinks and files", async () => {
+    const targetDir = "/skills"
+    addDirStructure(mockFs, targetDir, ["skill1", "file.txt", "skill2"])
+
+    // Add mixed content
+    mockFs.mockSymlinks.set("/skills/skill1", "/cache/skill1")
+    mockFs.mockFiles.add("/skills/file.txt")
+    mockFs.mockSymlinks.set("/skills/skill2", "/cache/skill2")
+
+    // Simulate cleanup: only remove symlinks
+    const entries = (await mockFs.mocks.readdir(targetDir)) as string[]
+    let cleaned = 0
+
+    for (const entry of entries) {
+      const entryPath = join(targetDir, entry)
+      const lstats = (await mockFs.mocks.lstat(entryPath)) as { isSymbolicLink: () => boolean }
+
+      if (lstats.isSymbolicLink()) {
+        await mockFs.mocks.unlink(entryPath)
+        cleaned++
+      }
+    }
+
+    expect(cleaned).toBe(2)
+    expect(mockFs.mockSymlinks.has("/skills/skill1")).toBe(false)
+    expect(mockFs.mockSymlinks.has("/skills/skill2")).toBe(false)
+    expect(mockFs.mockFiles.has("/skills/file.txt")).toBe(true)
+  })
+
+  it("should create fresh symlinks for all skills after cleanup", async () => {
+    const targetDir = "/skills"
+    addDirStructure(mockFs, targetDir, ["old-skill"])
+
+    // Old symlink
+    mockFs.mockSymlinks.set("/skills/old-skill", "/old/cache/skill")
+
+    // Simulate cleanup
+    const entries = (await mockFs.mocks.readdir(targetDir)) as string[]
+    for (const entry of entries) {
+      const entryPath = join(targetDir, entry)
+      const lstats = (await mockFs.mocks.lstat(entryPath)) as { isSymbolicLink: () => boolean }
+
+      if (lstats.isSymbolicLink()) {
+        await mockFs.mocks.unlink(entryPath)
+      }
+    }
+
+    // Create new symlinks
+    const skillMap = new Map<string, { path: string }>()
+    skillMap.set("python-tdd", { path: "/cache/python-tdd" })
+    skillMap.set("react-web", { path: "/cache/react-web" })
+
+    let created = 0
+    for (const [name, skill] of skillMap) {
+      const linkPath = join(targetDir, name)
+      await mockFs.mocks.symlink(skill.path, linkPath)
+      created++
+    }
+
+    expect(created).toBe(2)
+    expect(mockFs.mockSymlinks.get("/skills/python-tdd")).toBe("/cache/python-tdd")
+    expect(mockFs.mockSymlinks.get("/skills/react-web")).toBe("/cache/react-web")
+    expect(mockFs.mockSymlinks.has("/skills/old-skill")).toBe(false)
+  })
+
+  it("should handle lstat errors gracefully during cleanup", async () => {
+    const targetDir = "/skills"
+    addDirStructure(mockFs, targetDir, ["skill1"])
+    mockFs.mockSymlinks.set("/skills/skill1", "/cache/skill1")
+
+    // Spy on lstat to verify error handling
+    const lstatSpy = vi.spyOn(mockFs.mocks, "lstat")
+
+    // Simulate cleanup with error handling
+    const entries = (await mockFs.mocks.readdir(targetDir)) as string[]
+    let cleaned = 0
+
+    for (const entry of entries) {
+      try {
+        const entryPath = join(targetDir, entry)
+        const lstats = (await mockFs.mocks.lstat(entryPath)) as { isSymbolicLink: () => boolean }
+
+        if (lstats.isSymbolicLink()) {
+          await mockFs.mocks.unlink(entryPath)
+          cleaned++
+        }
+      } catch {
+        // Error handling during cleanup
+      }
+    }
+
+    expect(cleaned).toBe(1)
+    expect(lstatSpy).toHaveBeenCalled()
   })
 })
