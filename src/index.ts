@@ -1,15 +1,5 @@
 import type { Plugin, PluginInput } from "@opencode-ai/plugin"
-import {
-  access,
-  constants,
-  lstat,
-  readdir,
-  readlink,
-  mkdir,
-  symlink,
-  unlink,
-  stat
-} from "fs/promises"
+import { access, constants, lstat, readdir, mkdir, symlink, unlink, stat } from "fs/promises"
 import { join } from "path"
 import { homedir } from "os"
 
@@ -280,9 +270,8 @@ async function syncSkills(client: PluginInput["client"]): Promise<void> {
       await mkdir(targetDir, { recursive: true })
     }
 
-    // Clean existing symlinks
+    // Step 1: Clean all existing symlinks (safety-first)
     let cleaned = 0
-    let updated = 0
     let created = 0
 
     if (await exists(targetDir)) {
@@ -293,27 +282,10 @@ async function syncSkills(client: PluginInput["client"]): Promise<void> {
           const entryPath = join(targetDir, entry)
           const lstats = await lstat(entryPath)
 
+          // ONLY remove symlinks, never remove regular files or directories
           if (lstats.isSymbolicLink()) {
-            const target = await readlink(entryPath)
-            const skill = skillMap.get(entry)
-
-            // Remove broken or stale symlinks
-            const targetExists = await exists(entryPath)
-            if (!targetExists || !skill) {
-              await unlink(entryPath)
-              cleaned++
-              if (skill) skillMap.delete(entry)
-              continue
-            }
-
-            // Update if pointing to old version
-            if (target !== skill.path) {
-              await unlink(entryPath)
-              await symlink(skill.path, entryPath)
-              updated++
-            }
-
-            skillMap.delete(entry)
+            await unlink(entryPath)
+            cleaned++
           }
         } catch {
           // Skip problematic entries
@@ -321,7 +293,7 @@ async function syncSkills(client: PluginInput["client"]): Promise<void> {
       }
     }
 
-    // Create new symlinks
+    // Step 2: Create fresh symlinks for all discovered skills
     for (const [name, skill] of skillMap) {
       try {
         const linkPath = join(targetDir, name)
@@ -334,7 +306,7 @@ async function syncSkills(client: PluginInput["client"]): Promise<void> {
 
     (client as unknown as { app: { log: (msg: string) => void } }).app.log(
       `Synced ${totalFound} skills (limit: ${MAX_SKILLS}): ` +
-        `${created} created, ${updated} updated, ${cleaned} cleaned`
+        `${created} created, ${cleaned} cleaned`
     )
   } catch (err) {
     console.error("[claude-skill-sync] Sync failed:", err)
