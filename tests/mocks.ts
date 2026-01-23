@@ -29,7 +29,7 @@ interface StatResult {
   isSymbolicLink: () => boolean
 }
 
-interface MockFSMethods {
+export interface MockFSMethods {
   access: ReturnType<typeof vi.fn>
   readdir: ReturnType<typeof vi.fn>
   stat: ReturnType<typeof vi.fn>
