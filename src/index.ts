@@ -236,7 +236,6 @@ async function syncSkills(client: PluginInput["client"]): Promise<void> {
       (client as unknown as { app: { log: (msg: string) => void } }).app.log(
         "Claude Code not installed, skipping"
       )
-      return
     }
 
     // Find skills from cache first (higher priority), then marketplaces
@@ -273,7 +272,6 @@ async function syncSkills(client: PluginInput["client"]): Promise<void> {
     // Step 1: Clean all existing symlinks (safety-first)
     let cleaned = 0
     let created = 0
-
     if (await exists(targetDir)) {
       const entries = await readdir(targetDir)
 
@@ -308,6 +306,10 @@ async function syncSkills(client: PluginInput["client"]): Promise<void> {
       `Synced ${totalFound} skills (limit: ${MAX_SKILLS}): ` +
         `${created} created, ${cleaned} cleaned`
     )
+
+    // Note: Orphan cleanup is not needed here because the clean-slate sync approach
+    // (wiping all symlinks, then recreating) inherently prevents orphan symlinks.
+    // The orphan-cleanup module exists for future incremental sync implementations.
   } catch (err) {
     console.error("[claude-skill-sync] Sync failed:", err)
   }
